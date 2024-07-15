@@ -7,13 +7,16 @@ export enum Action {
     DeleteFile,
     OpenFolder,
     OpenFolderInNewWindow,
+    Pin,
+    OpenPin,
 }
 
-export function action(label: string, action: Action) {
+export function action(label: string, action: Action, arg?: any) {
     return {
         label,
         name: "",
         action,
         alwaysShow: true,
+        arg,
     };
 }

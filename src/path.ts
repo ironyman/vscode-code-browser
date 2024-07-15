@@ -118,7 +118,7 @@ export class Path {
     async isDir(): Promise<boolean> {
         const stat = await this.stat();
         return stat.match(
-            (stat) => !!(stat.type | FileType.Directory),
+            (stat) => !!(stat.type & FileType.Directory),
             () => false
         );
     }
@@ -126,7 +126,7 @@ export class Path {
     async isFile(): Promise<boolean> {
         const stat = await this.stat();
         return stat.match(
-            (stat) => !!(stat.type | FileType.File),
+            (stat) => !!(stat.type & FileType.File),
             () => false
         );
     }

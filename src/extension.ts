@@ -9,6 +9,8 @@ import { Rules } from "./filter";
 import { FileItem, fileRecordCompare } from "./fileitem";
 import { action, Action } from "./action";
 
+interface PinnedItem { fsPath: string, type: vscode.FileType }
+
 export enum ConfigItem {
     RemoveIgnoredFiles = "removeIgnoredFiles",
     HideDotfiles = "hideDotfiles",
@@ -55,11 +57,12 @@ class FileBrowser {
         tooltip: "Step into folder",
     };
 
-    constructor(path: Path, file: Option<string>) {
+    constructor(path: Path, file: Option<string>, private context: vscode.ExtensionContext) {
         this.path = path;
         this.file = file;
         this.pathHistory = { [this.path.id]: this.file };
         this.current = vscode.window.createQuickPick();
+        this.current.ignoreFocusOut = true; // add this
         this.current.buttons = [this.actionsButton, this.stepOutButton, this.stepInButton];
         this.current.placeholder = "Preparing the file list...";
         this.current.onDidHide(() => {
@@ -70,6 +73,7 @@ class FileBrowser {
         this.current.onDidAccept(this.onDidAccept.bind(this));
         this.current.onDidChangeValue(this.onDidChangeValue.bind(this));
         this.current.onDidTriggerButton(this.onDidTriggerButton.bind(this));
+        this.current.onDidTriggerItemButton(this.onDidTriggerItemButton.bind(this));
         this.update().then(() => {
             this.current.placeholder = "Type a file name here to search or open a new file";
             this.current.busy = false;
@@ -92,6 +96,38 @@ class FileBrowser {
         this.current.show();
     }
 
+    async togglePin(path: Path) {
+        let pinned: PinnedItem[] = this.context.globalState.get('file-browser.pinned', []);
+        let found = pinned.findIndex(p => p.fsPath === path.uri.fsPath);
+        if (found === -1) {
+            let isDir = await path.isDir();
+            pinned.push({ fsPath: path.uri.fsPath, type: isDir ? vscode.FileType.Directory : vscode.FileType.File });
+        } else {
+            pinned.splice(found, 1);
+        }
+        return this.context.globalState.update('file-browser.pinned', pinned);
+    }
+
+    getPinned(): FileItem[] {
+        let pinned: PinnedItem[] = this.context.globalState.get('file-browser.pinned', []);
+        // let pinned = pinnedStrings.map(p => vscode.Uri.parse(p));
+        return pinned.map(p => {
+            let name;
+            if (p.type === vscode.FileType.Directory) {
+                name = `$(folder-opened) ${p.fsPath}`;
+            } else {
+                name = `$(file) ${p.fsPath}`;
+            }
+            let a: FileItem = action(name, Action.OpenPin, p);
+            a.buttons = [
+                {
+                    iconPath: new vscode.ThemeIcon("close")
+                }
+            ];
+            return a;
+        });
+    }
+
     async update() {
         // FIXME: temporary and UGLY fix of https://github.com/bodil/vscode-file-browser/issues/35.
         // Brought in from here https://github.com/atariq11700/vscode-file-browser/commit/a2525d01f262f17dac2c478e56640c9ce1f65713.
@@ -108,6 +144,8 @@ class FileBrowser {
                 action("$(split-horizontal) Open this file to the side", Action.OpenFileBeside),
                 action("$(edit) Rename this file", Action.RenameFile),
                 action("$(trash) Delete this file", Action.DeleteFile),
+                action("$(pin) Pin this file", Action.Pin),
+                ...this.getPinned(),
             ];
             this.current.items = this.items;
         } else if (
@@ -123,6 +161,8 @@ class FileBrowser {
                 ),
                 action("$(edit) Rename this folder", Action.RenameFile),
                 action("$(trash) Delete this folder", Action.DeleteFile),
+                action("$(pin) Pin this folder", Action.Pin),
+                ...this.getPinned(),
             ];
             this.current.items = this.items;
         } else if (stat && (stat.type & FileType.Directory) === FileType.Directory) {
@@ -196,6 +236,15 @@ class FileBrowser {
         } else if (button === this.actionsButton) {
             this.actions();
         }
+    }
+
+    onDidTriggerItemButton(e: vscode.QuickPickItemButtonEvent<FileItem>) {
+        if ((e.button.iconPath as vscode.ThemeIcon)?.id !== 'close') {
+            return;
+        }
+        let item = (e.item as any).arg as PinnedItem;
+        let path = Path.fromFilePath(item.fsPath);
+        this.togglePin(path).then(() => this.update());
     }
 
     activeItem(): Option<FileItem> {
@@ -418,6 +467,23 @@ class FileBrowser {
                 vscode.commands.executeCommand("vscode.openFolder", this.path.uri, true);
                 break;
             }
+            case Action.Pin: {
+                this.togglePin(this.path);
+                this.hide();
+                break;
+            }
+            case Action.OpenPin: {
+                let arg = (item as any).arg as PinnedItem;
+                if (arg.type === vscode.FileType.Directory) {
+                    this.path = Path.fromFilePath(arg.fsPath);
+                    this.inActions = false;
+                    this.update();
+                } else {
+                    this.path = Path.fromFilePath(arg.fsPath);
+                    this.openFile(this.path.uri);
+                }
+                break;
+            }
             default:
                 throw new Error(`Unhandled action ${item.action}`);
         }
@@ -438,7 +504,7 @@ export function activate(context: vscode.ExtensionContext) {
                 path = new Path(document.uri);
                 file = path.pop();
             }
-            active = Some(new FileBrowser(path, file));
+            active = Some(new FileBrowser(path, file, context));
             setContext(true);
         })
     );
@@ -449,7 +515,7 @@ export function activate(context: vscode.ExtensionContext) {
                 let workspaceFolder =
                     vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
                 let path = new Path(document?.uri || workspaceFolder?.uri || Uri.file(OS.homedir()));
-                active = Some(new FileBrowser(path, None));
+                active = Some(new FileBrowser(path, None, context));
                 setContext(true);
                 return active;
             }).ifSome((active) => active.rename())

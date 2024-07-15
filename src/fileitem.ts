@@ -11,6 +11,7 @@ export class FileItem implements QuickPickItem {
     description?: string;
     fileType?: FileType;
     action?: Action;
+    buttons?: readonly vscode.QuickInputButton[];
 
     constructor(record: [string, FileType]) {
         const [name, fileType] = record;
