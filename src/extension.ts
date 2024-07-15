@@ -280,9 +280,6 @@ class FileBrowser {
             // This also checks out when items is empty
             const item = this.autoCompletion.items[newIndex];
             this.current.value = item.name;
-            if (length === 1 && item.fileType === FileType.Directory) {
-                this.current.value += "/";
-            }
 
             this.onDidChangeValue(this.current.value, true);
         }
