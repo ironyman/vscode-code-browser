@@ -558,8 +558,12 @@ export function activate(context: vscode.ExtensionContext) {
             let path = new Path(workspaceFolder?.uri || Uri.file(OS.homedir()));
             let file: Option<string> = None;
             if (document && !document.isUntitled) {
-                path = new Path(document.uri);
-                file = path.pop();
+                try {
+                    path = new Path(document.uri);
+                    file = path.pop();
+                } catch (error) {
+                    path = Path.fromFilePath('@');
+                }
             }
             active = Some(new FileBrowser(path, file, context));
             setContext(true);
