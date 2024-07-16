@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { Uri, WorkspaceFolder, FileStat, FileType, FileSystemError } from "vscode";
 import * as OSPath from "path";
 import { Option, None, Some, Result, Err, Ok } from "./rust";
+import * as OS from "os";
 
 export class Path {
     private pathUri: Uri;
@@ -11,6 +12,34 @@ export class Path {
     }
 
     static fromFilePath(filePath: string): Path {
+        if (filePath.length === 2 && filePath.endsWith(':')) {
+            filePath = filePath.concat('/');
+        }
+        if (filePath.length === 0) {
+            filePath = '/';
+        }
+        if (filePath.startsWith('~')) {
+            filePath = filePath.replace('~', OS.homedir());
+        }
+        if (filePath.startsWith('@')) {
+            const workspaceFolder =
+                vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
+            if (workspaceFolder) {
+                filePath = filePath.replace('@', workspaceFolder.uri.fsPath);
+            }
+        }
+        if (filePath.startsWith('$env:')) {
+            let envVarEnd = filePath.indexOf('/');
+            if (envVarEnd === -1) {
+                envVarEnd = filePath.length;
+            }
+            let envVarName = filePath.slice('$env:'.length, envVarEnd);
+            let configEnvVars = vscode.workspace.getConfiguration('file-browser').get('envVars') || {} as any;
+            if (configEnvVars[envVarName]) {
+                filePath = configEnvVars[envVarName] + filePath.slice(envVarEnd);
+            }
+        }
+
         return new Path(Uri.file(filePath));
     }
 

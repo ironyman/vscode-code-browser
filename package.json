@@ -68,6 +68,11 @@
                         ".npmignore",
                         ".vscodeignore"
                     ]
+                },
+                "file-browser.envVars": {
+                    "markdownDescription": "A list of environment variables to be made useable in paths",
+                    "type": "object",
+                    "default": {}
                 }
             }
         },

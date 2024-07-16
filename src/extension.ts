@@ -206,19 +206,55 @@ class FileBrowser {
             this.current.items = this.items;
             this.current.activeItems = [existingItem];
         } else {
+            // Need to support
+            // - directory entries in cwd
+            // - paths relative to \,
+            // - paths relative to c:\,
+            // - paths relative to cwd
+            // - paths relative to workspace, @
+            // - paths relative to ~
+            // TODO: You should clean this up to not have separate logic for endsWithPathSeparator.
+            const origValue = value;
+            value = value.replace(/\\/g, '/');
+            let lastPathSeparatorStartSearchIndex = value.length - 1;
+            if (value.length > 1 && value.endsWith('/') && !value.endsWith(':/')) {
+                lastPathSeparatorStartSearchIndex--;
+            }
+
+            let lastPathSeparator = value.lastIndexOf('/', lastPathSeparatorStartSearchIndex);
+            if (lastPathSeparator !== -1) {
+                let rootRelativePath = value.startsWith('/');
+                let driveRootRelativePath = value.length > 1 && value.slice(1).startsWith(':');
+                let homeRelativePath = value.startsWith('~');
+                let workspaceRelativePath = value.startsWith('@');
+                let envRelativePath = value.startsWith('$env:');
+                if (rootRelativePath || driveRootRelativePath || homeRelativePath || workspaceRelativePath || envRelativePath) {
+                    this.stepIntoFolder(Path.fromFilePath(value.slice(0, lastPathSeparator))).then(() => {
+                        this.current.value = value.slice(lastPathSeparator + 1);
+                    });
+                } else {
+                    this.stepIntoFolder(this.path.append(value.slice(0, lastPathSeparator))).then(() => {
+                        this.current.value = value.slice(lastPathSeparator + 1);
+                    });
+                }
+                return;
+            }
+
             endsWithPathSeparator(value).match(
                 (path) => {
-                    if (path === "~") {
-                        this.stepIntoFolder(Path.fromFilePath(OS.homedir()));
+                    if (path === "~" || path === '@') {
+                        this.stepIntoFolder(Path.fromFilePath(path));
                     } else if (path === "..") {
                         this.stepOut();
+                    } else if (path === '') {
+                        this.stepIntoFolder(Path.fromFilePath('/'));
                     } else {
                         this.stepIntoFolder(this.path.append(path));
                     }
                 },
                 () => {
                     const newItem = {
-                        label: `$(new-file) ${value}`,
+                        label: `$(new-file) ${origValue}`,
                         name: value,
                         description: "Open as new file",
                         alwaysShow: true,
@@ -255,11 +291,11 @@ class FileBrowser {
     }
 
     async stepIntoFolder(folder: Path) {
-        if (!this.path.equals(folder)) {
+        // if (!this.path.equals(folder)) {
             this.path = folder;
             this.file = this.pathHistory[this.path.id] || None;
             await this.update();
-        }
+        // }
     }
 
     async stepIn() {
