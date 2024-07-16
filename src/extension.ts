@@ -43,6 +43,7 @@ class FileBrowser {
     inActions: boolean = false;
     keepAlive: boolean = false;
     autoCompletion?: AutoCompletion;
+    isAutoCompleteChange = false;
 
     actionsButton: QuickInputButton = {
         iconPath: new ThemeIcon("ellipsis"),
@@ -186,13 +187,15 @@ class FileBrowser {
         this.current.enabled = true;
     }
 
-    onDidChangeValue(value: string, isAutoComplete = false) {
+    onDidChangeValue(value: string) {
         if (this.inActions) {
             return;
         }
 
-        if (!isAutoComplete) {
+        if (!this.isAutoCompleteChange) {
             this.autoCompletion = undefined;
+        } else {
+            this.isAutoCompleteChange = false;
         }
 
         const existingItem = this.items.find((item) => item.name === value);
@@ -315,7 +318,7 @@ class FileBrowser {
             this.autoCompletion.index = (this.autoCompletion.index + length + step) % length;
         } else {
             const items = this.items.filter((i) =>
-                i.name.toLowerCase().startsWith(this.current.value.toLowerCase())
+                i.name.toLowerCase().indexOf(this.current.value.toLowerCase()) !== -1
             );
             this.autoCompletion = {
                 index: tabNext ? 0 : items.length - 1,
@@ -328,9 +331,11 @@ class FileBrowser {
         if (newIndex < length) {
             // This also checks out when items is empty
             const item = this.autoCompletion.items[newIndex];
+            this.isAutoCompleteChange = true;
             this.current.value = item.name;
-
-            this.onDidChangeValue(this.current.value, true);
+            // Setting value automatically calls this.onDidChangeValue so calling with true won't achieve what we want
+            // because it will be called after with false in second argument
+            // this.onDidChangeValue(this.current.value, true);
         }
     }
 

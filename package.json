@@ -95,17 +95,27 @@
         ],
         "keybindings": [
             {
-                "key": "right",
+                "key": "ctrl+l",
                 "command": "file-browser.stepIn",
                 "when": "inFileBrowser"
             },
             {
-                "key": "left",
+                "key": "ctrl+h",
                 "command": "file-browser.stepOut",
                 "when": "inFileBrowser"
             },
             {
-                "key": "ctrl+a",
+                "key": "ctrl+j",
+                "command": "quickInput.next",
+                "when": "inFileBrowser"
+            },
+            {
+                "key": "ctrl+k",
+                "command": "quickInput.previous",
+                "when": "inFileBrowser"
+            },
+            {
+                "key": "ctrl+s",
                 "command": "file-browser.actions",
                 "when": "inFileBrowser"
             },
@@ -128,7 +138,8 @@
         "watch": "tsc -watch -p ./",
         "pretest": "npm run compile && npm run lint",
         "test": "node ./out/test/runTest.js",
-        "doc": "typedoc --mode modules --excludePrivate --readme none --excludeNotExported --excludePrivate --excludeProtected --stripInternal"
+        "doc": "typedoc --mode modules --excludePrivate --readme none --excludeNotExported --excludePrivate --excludeProtected --stripInternal",
+        "build-vsix": "vsce package"
     },
     "devDependencies": {
         "@types/glob": "^7.2.0",
@@ -142,7 +153,8 @@
         "glob": "^7.2.3",
         "mocha": "^10.1.0",
         "typedoc": "^0.23.21",
-        "typescript": "^4.9.3"
+        "typescript": "^4.9.3",
+        "vsce": "^2.15.0"
     },
     "dependencies": {
         "ignore": "^5.2.0"
