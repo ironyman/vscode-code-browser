@@ -319,7 +319,18 @@ class FileBrowser {
         } else {
             const items = this.items.filter((i) =>
                 i.name.toLowerCase().indexOf(this.current.value.toLowerCase()) !== -1
-            );
+            ).sort((a, b) => {
+                const indexA = a.name.toLowerCase().indexOf(this.current.value.toLowerCase());
+                const indexB = b.name.toLowerCase().indexOf(this.current.value.toLowerCase());
+
+                // Compare the indices of the term
+                if (indexA !== indexB) {
+                    return indexA - indexB; // Sort by earliness
+                }
+
+                // If indices are equal, sort lexicographically
+                return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+            });
             this.autoCompletion = {
                 index: tabNext ? 0 : items.length - 1,
                 items,
@@ -331,8 +342,13 @@ class FileBrowser {
         if (newIndex < length) {
             // This also checks out when items is empty
             const item = this.autoCompletion.items[newIndex];
-            this.isAutoCompleteChange = true;
-            this.current.value = item.name;
+            if (length === 1 && item.fileType === vscode.FileType.Directory) {
+                this.current.value = item.name + '/';
+            } else {
+                this.isAutoCompleteChange = true;
+                this.current.value = item.name;
+            }
+
             // Setting value automatically calls this.onDidChangeValue so calling with true won't achieve what we want
             // because it will be called after with false in second argument
             // this.onDidChangeValue(this.current.value, true);
