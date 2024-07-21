@@ -679,6 +679,9 @@ export function activate(context: vscode.ExtensionContext) {
         queryCurrentPath: (): string | undefined => {
             return active.unwrap()?.path.fsPath;
         },
+        close: () => {
+            return active.unwrap()?.dispose();
+        },
     };
 }
 
