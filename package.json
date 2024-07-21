@@ -24,8 +24,7 @@
     "categories": [
         "Other"
     ],
-    "activationEvents": [
-    ],
+    "activationEvents": [],
     "main": "./out/extension.js",
     "extensionKind": [
         "workspace",
@@ -168,7 +167,7 @@
         "pretest": "npm run compile && npm run lint",
         "test": "node ./out/test/runTest.js",
         "doc": "typedoc --mode modules --excludePrivate --readme none --excludeNotExported --excludePrivate --excludeProtected --stripInternal",
-        "build-vsix": "vsce package"
+        "build-vsix": "vsce package --yarn"
     },
     "devDependencies": {
         "@types/glob": "^7.2.0",
@@ -182,12 +181,12 @@
         "eslint": "^8.28.0",
         "glob": "^7.2.3",
         "mocha": "^10.1.0",
-        "shell-quote": "^1.8.1",
         "typedoc": "^0.23.21",
         "typescript": "^4.9.3",
         "vsce": "^2.15.0"
     },
     "dependencies": {
-        "ignore": "^5.2.0"
+        "ignore": "^5.2.0",
+        "shell-quote": "^1.8.1"
     }
 }
