@@ -8,6 +8,7 @@ import { Path, endsWithPathSeparator } from "./path";
 import { Rules } from "./filter";
 import { FileItem, fileRecordCompare } from "./fileitem";
 import { action, Action } from "./action";
+import { initializeSearchDirs, searchDirs } from "./grep";
 
 interface PinnedItem { fsPath: string, type: vscode.FileType }
 
@@ -145,6 +146,8 @@ class FileBrowser {
                 action("$(split-horizontal) Open this file to the side", Action.OpenFileBeside),
                 action("$(edit) Rename this file", Action.RenameFile),
                 action("$(trash) Delete this file", Action.DeleteFile),
+                action("$(search) Find files in containing folder", Action.FindFiles),
+                action("$(symbol-keyword) Find files in containing folder by content", Action.FindFilesContent),
                 action("$(pin) Pin this file", Action.Pin),
                 ...this.getPinned(),
             ];
@@ -162,6 +165,8 @@ class FileBrowser {
                 ),
                 action("$(edit) Rename this folder", Action.RenameFile),
                 action("$(trash) Delete this folder", Action.DeleteFile),
+                action("$(search) Find files", Action.FindFiles),
+                action("$(symbol-keyword) Find files by content", Action.FindFilesContent),
                 action("$(pin) Pin this folder", Action.Pin),
                 ...this.getPinned(),
             ];
@@ -541,6 +546,30 @@ class FileBrowser {
                 }
                 break;
             }
+            case Action.FindFiles: {
+                const uri = this.path.uri;
+                const stat = await vscode.workspace.fs.stat(uri);
+                const isDir = (stat.type & FileType.Directory) === FileType.Directory;
+
+                if (isDir) {
+                    searchDirs([this.path.uri.fsPath]);
+                } else {
+                    searchDirs([OSPath.dirname(this.path.uri.fsPath)]);
+                }
+                break;
+            }
+            case Action.FindFilesContent: {
+                const uri = this.path.uri;
+                const stat = await vscode.workspace.fs.stat(uri);
+                const isDir = (stat.type & FileType.Directory) === FileType.Directory;
+
+                if (isDir) {
+                    searchDirs([this.path.uri.fsPath], { searchFileNameOnly: false });
+                } else {
+                    searchDirs([OSPath.dirname(this.path.uri.fsPath)], { searchFileNameOnly: false });
+                }
+                break;
+            }
             default:
                 throw new Error(`Unhandled action ${item.action}`);
         }
@@ -608,6 +637,8 @@ export function activate(context: vscode.ExtensionContext) {
             active.ifSome((active) => active.tabCompletion(false))
         )
     );
+
+    initializeSearchDirs(context);
 }
 
 export function deactivate() {}

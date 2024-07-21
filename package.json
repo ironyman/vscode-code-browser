@@ -96,6 +96,10 @@
             {
                 "command": "file-browser.actions",
                 "title": "File Browser: Actions"
+            },
+            {
+                "command": "file-browser.grep",
+                "title": "File Browser: Actions"
             }
         ],
         "keybindings": [
@@ -133,6 +137,11 @@
                 "key": "shift+tab",
                 "command": "file-browser.tabPrev",
                 "when": "inFileBrowser"
+            },
+            {
+                "key": "ctrl+; ctrl+g",
+                "command": "file-browser.grep",
+                "when": "!inFileBrowser"
             }
         ]
     },
@@ -150,6 +159,7 @@
         "@types/glob": "^7.2.0",
         "@types/mocha": "^10.0.0",
         "@types/node": "^18.11.9",
+        "@types/shell-quote": "^1.7.5",
         "@types/vscode": "^1.73.1",
         "@typescript-eslint/eslint-plugin": "^5.43.0",
         "@typescript-eslint/parser": "^5.43.0",
@@ -157,6 +167,7 @@
         "eslint": "^8.28.0",
         "glob": "^7.2.3",
         "mocha": "^10.1.0",
+        "shell-quote": "^1.8.1",
         "typedoc": "^0.23.21",
         "typescript": "^4.9.3",
         "vsce": "^2.15.0"

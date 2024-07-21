@@ -9,6 +9,8 @@ export enum Action {
     OpenFolderInNewWindow,
     Pin,
     OpenPin,
+    FindFiles,
+    FindFilesContent,
 }
 
 export function action(label: string, action: Action, arg?: any) {
