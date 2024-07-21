@@ -30,6 +30,16 @@ function setContext(state: boolean) {
     vscode.commands.executeCommand("setContext", "inFileBrowser", state);
 }
 
+function setContext2(path: Path | undefined) {
+    if (path === undefined) {
+        vscode.commands.executeCommand("setContext", "FileBrowser", undefined);
+    } else {
+        vscode.commands.executeCommand("setContext", "FileBrowserState", {
+            path: path.fsPath
+        });
+    }
+}
+
 interface AutoCompletion {
     index: number;
     items: FileItem[];
@@ -84,6 +94,7 @@ class FileBrowser {
 
     dispose() {
         setContext(false);
+        setContext2(undefined);
         this.current.dispose();
         active = None;
     }
@@ -91,10 +102,12 @@ class FileBrowser {
     hide() {
         this.current.hide();
         setContext(false);
+        setContext2(undefined);
     }
 
     show() {
         setContext(true);
+        setContext2(this.path);
         this.current.show();
     }
 
@@ -298,6 +311,7 @@ class FileBrowser {
     async stepIntoFolder(folder: Path) {
         // if (!this.path.equals(folder)) {
             this.path = folder;
+            setContext2(this.path);
             this.file = this.pathHistory[this.path.id] || None;
             await this.update();
         // }
@@ -578,6 +592,7 @@ class FileBrowser {
 
 export function activate(context: vscode.ExtensionContext) {
     setContext(false);
+    setContext2(undefined);
 
     context.subscriptions.push(
         vscode.commands.registerCommand("file-browser.open", () => {
@@ -596,6 +611,8 @@ export function activate(context: vscode.ExtensionContext) {
             }
             active = Some(new FileBrowser(path, file, context));
             setContext(true);
+            setContext2(path);
+
         })
     );
     context.subscriptions.push(
@@ -607,6 +624,7 @@ export function activate(context: vscode.ExtensionContext) {
                 let path = new Path(document?.uri || workspaceFolder?.uri || Uri.file(OS.homedir()));
                 active = Some(new FileBrowser(path, None, context));
                 setContext(true);
+                setContext2(path);
                 return active;
             }).ifSome((active) => active.rename())
         )
@@ -656,6 +674,12 @@ export function activate(context: vscode.ExtensionContext) {
     ));
 
     initializeSearchDirs(context);
+
+    return {
+        queryCurrentPath: (): string | undefined => {
+            return active.unwrap()?.path.fsPath;
+        },
+    };
 }
 
 export function deactivate() {}
