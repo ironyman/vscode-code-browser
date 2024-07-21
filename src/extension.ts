@@ -638,6 +638,23 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+        "file-browser.grep",
+        async () => {
+            if (active.isSome()) {
+                let currentPath = active.unwrap()!.path;
+                if (await currentPath.isDir()) {
+                    searchDirs([currentPath.fsPath]);
+                } else {
+                    searchDirs([OSPath.dirname(currentPath.fsPath)]);
+                }
+            } else {
+                searchDirs([]);
+            }
+        },
+    ));
+
     initializeSearchDirs(context);
 }
 

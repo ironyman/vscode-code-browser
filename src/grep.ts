@@ -26,93 +26,6 @@ function debounce(callback: (...arg0: any[]) => any, wait: number) {
   };
 }
 
-function fetchItemsSearchContent(
-  command: string,
-  dir: string,
-): Promise<QuickPickItemWithLine[]> {
-  return new Promise((resolve, reject) => {
-    if (dir === "") {
-      reject(new Error("Can't parse dir ''"));
-    }
-    cp.exec(
-      command,
-      { cwd: dir, maxBuffer: MAX_BUF_SIZE },
-      (err, stdout, stderr) => {
-        if (stderr) {
-          reject(new Error(stderr));
-        }
-        const lines = stdout.split(/\n/).filter((l) => l !== "");
-        if (!lines.length) {
-          resolve([]);
-        }
-        resolve(
-          lines
-            .map((line) => {
-              const [fullPath, num, ...desc] = line.split(":");
-              const description = desc.join(":").trim();
-              return {
-                fullPath,
-                num: Number(num),
-                line,
-                description,
-              };
-            })
-            .filter(
-              ({ description, num }) =>
-                description.length < MAX_DESC_LENGTH && !!num,
-            )
-            .map(({ fullPath, num, line, description }) => {
-              const path = fullPath.split("/");
-              return {
-                label: `${path[path.length - 1]} : ${num}`,
-                description,
-                detail: dir + fullPath.substring(1, fullPath.length),
-                num,
-              };
-            }),
-        );
-      },
-    );
-  });
-}
-
-function fetchItemsSearchName(
-  command: string,
-  dir: string,
-): Promise<QuickPickItemWithLine[]> {
-  return new Promise((resolve, reject) => {
-    if (dir === "") {
-      reject(new Error("Can't parse dir ''"));
-    }
-    cp.exec(
-      command,
-      { cwd: dir, maxBuffer: MAX_BUF_SIZE },
-      (err, stdout, stderr) => {
-        if (stderr) {
-          reject(new Error(stderr));
-        }
-        const lines = stdout.split(/\n/).filter((l) => l !== "");
-        if (!lines.length) {
-          resolve([]);
-        }
-        resolve(
-          lines
-            .map((line) => {
-              const path = line.split("/");
-
-              return {
-                label: `${path[path.length - 1]}`,
-                fullPath: line,
-                description: '',
-                detail: dir + line.substring(1, line.length),
-                num: 0,
-              };
-            })
-        );
-      },
-    );
-  });
-}
 function getCurrentFileDirectorySync(): string {
   if (!vscode.window.activeTextEditor) {
     vscode.window.showErrorMessage("No active editor.");
@@ -163,7 +76,7 @@ class SearchBrowser {
     },
   ] as vscode.QuickInputButton[];
   quickPickValue: string = '';
-
+  currentProcess?: cp.ChildProcess;
 
 
   constructor(public dirs: string[], opts?: {
@@ -181,6 +94,7 @@ class SearchBrowser {
     // quickPick.ignoreFocusOut = true;
     quickPick.items = this.scrollBack;
     quickPick.buttons = this.quickPickButtons;
+    quickPick.title = 'Searching in ' + this.dirs[0];
 
     quickPick.show();
     this.current = quickPick;
@@ -197,8 +111,108 @@ class SearchBrowser {
     });
   }
 
+  async fetchItemsSearchContent(
+    command: string,
+    dir: string,
+  ): Promise<QuickPickItemWithLine[]> {
+    if (this.currentProcess) {
+      this.currentProcess?.kill('SIGTERM');
+      this.currentProcess = undefined;
+    }
+
+    return new Promise((resolve, reject) => {
+      if (dir === "") {
+        reject(new Error("Can't parse dir ''"));
+      }
+      this.currentProcess = cp.exec(
+        command,
+        { cwd: dir, maxBuffer: MAX_BUF_SIZE },
+        (err, stdout, stderr) => {
+          if (stderr) {
+            reject(new Error(stderr));
+          }
+          const lines = stdout.split(/\n/).filter((l) => l !== "");
+          if (!lines.length) {
+            resolve([]);
+          }
+          resolve(
+            lines
+              .map((line) => {
+                const [fullPath, num, ...desc] = line.split(":");
+                const description = desc.join(":").trim();
+                return {
+                  fullPath,
+                  num: Number(num),
+                  line,
+                  description,
+                };
+              })
+              .filter(
+                ({ description, num }) =>
+                  description.length < MAX_DESC_LENGTH && !!num,
+              )
+              .map(({ fullPath, num, line, description }) => {
+                const path = fullPath.split("/");
+                return {
+                  label: `${path[path.length - 1]} : ${num}`,
+                  description,
+                  detail: dir + fullPath.substring(1, fullPath.length),
+                  num,
+                };
+              }),
+          );
+        },
+      );
+    });
+  }
+
+  async fetchItemsSearchName(
+    command: string,
+    dir: string,
+  ): Promise<QuickPickItemWithLine[]> {
+    if (this.currentProcess) {
+      this.currentProcess?.kill('SIGTERM');
+      this.currentProcess = undefined;
+    }
+
+    return new Promise((resolve, reject) => {
+      if (dir === "") {
+        reject(new Error("Can't parse dir ''"));
+      }
+      this.currentProcess = cp.exec(
+        command,
+        { cwd: dir, maxBuffer: MAX_BUF_SIZE },
+        (err, stdout, stderr) => {
+          if (stderr) {
+            reject(new Error(stderr));
+          }
+          const lines = stdout.split(/\n/).filter((l) => l !== "");
+          if (!lines.length) {
+            resolve([]);
+          }
+          resolve(
+            lines
+              .map((line) => {
+                const path = line.split("/");
+
+                return {
+                  label: `${path[path.length - 1]}`,
+                  fullPath: line,
+                  description: '',
+                  detail: dir + line.substring(1, line.length),
+                  num: 0,
+                };
+              })
+          );
+        },
+      );
+    });
+  }
+
   async updateSearch(value: string) {
     this.quickPickValue = value;
+    this.current.title = 'Searching in ' + this.dirs[0];
+
     if (!value || value === "") {
       return;
     }
@@ -221,7 +235,7 @@ class SearchBrowser {
     }
     this.current.items = (
       await Promise.allSettled(
-        this.dirs.map((dir) => this.searchFileNameOnly ? fetchItemsSearchName(quoteSearch, dir) : fetchItemsSearchContent(quoteSearch, dir) ),
+        this.dirs.map((dir) => this.searchFileNameOnly ? this.fetchItemsSearchName(quoteSearch, dir) : this.fetchItemsSearchContent(quoteSearch, dir) ),
       )
     )
       .map((result) => {
@@ -325,6 +339,8 @@ class SearchBrowser {
 
   dispose() {
     this.setContext(false);
+    this.currentProcess?.kill('SIGTERM');
+    this.currentProcess = undefined;
     this.current.dispose();
   }
 }
@@ -337,14 +353,6 @@ export async function searchDirs(dirs: string[], opts?: {
 }
 
 export function initializeSearchDirs(context: vscode.ExtensionContext) {
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-    "file-browser.grep",
-    async () => {
-        searchDirs([]);
-    },
-  ));
-
   context.subscriptions.push(
     vscode.commands.registerCommand(
     "file-browser.grep.toggleSearchWorkspace",
