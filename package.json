@@ -100,6 +100,14 @@
             {
                 "command": "file-browser.grep",
                 "title": "File Browser: Actions"
+            },
+            {
+                "command": "file-browser.grep.toggleSearchWorkspace",
+                "title": "Search Browser: Toggle search workspace"
+            },
+            {
+                "command": "file-browser.grep.toggleSearchContent",
+                "title": "Search Browser: Toggle search content"
             }
         ],
         "keybindings": [
@@ -142,6 +150,16 @@
                 "key": "ctrl+; ctrl+g",
                 "command": "file-browser.grep",
                 "when": "!inFileBrowser"
+            },
+            {
+                "key": "ctrl+1",
+                "command": "file-browser.grep.toggleSearchWorkspace",
+                "when": "inSearchBrowser"
+            },
+            {
+                "key": "ctrl+2",
+                "command": "file-browser.grep.toggleSearchContent",
+                "when": "inSearchBrowser"
             }
         ]
     },

@@ -6,19 +6,7 @@ import * as path from "path";
 const MAX_DESC_LENGTH = 1000;
 const MAX_BUF_SIZE = 200000 * 1024;
 
-let quickPickValue: string;
-
-const scrollBack: QuickPickItemWithLine[] = [];
-let quickPickButtons = [
-  {
-    iconPath: new vscode.ThemeIcon('symbol-folder'),
-    tooltip: 'Search workspace'
-  } as vscode.QuickInputButton,
-  {
-    iconPath: new vscode.ThemeIcon('symbol-keyword'),
-    tooltip: 'Search file content',
-  },
-] as vscode.QuickInputButton[];
+let active: SearchBrowser;
 
 const getRgPath = () => {
   return vscode.env.appRoot + '/node_modules.asar.unpacked/@vscode/ripgrep/bin/rg';
@@ -125,7 +113,19 @@ function fetchItemsSearchName(
     );
   });
 }
+function getCurrentFileDirectorySync(): string {
+  if (!vscode.window.activeTextEditor) {
+    vscode.window.showErrorMessage("No active editor.");
+    return '';
+  }
+  let pwd = vscode.Uri.parse(
+      vscode.window.activeTextEditor.document.uri.path,
+  );
+  let pwdString = pwd.path;
+    pwdString = path.dirname(pwdString);
 
+  return pwdString;
+}
 async function getCurrentFileDirectory(): Promise<string> {
   if (!vscode.window.activeTextEditor) {
     vscode.window.showErrorMessage("No active editor.");
@@ -144,21 +144,61 @@ async function getCurrentFileDirectory(): Promise<string> {
   return pwdString;
 }
 
-export async function searchDirs(dirs: string[], opts?: {
-  searchFileNameOnly?: boolean
-}) {
-  const isOption = (s: string) => /^--?[a-z]+/.test(s);
-  const isWordQuoted = (s: string) => /^".*"/.test(s);
-  if (dirs.length === 0) {
-    dirs = [await getCurrentFileDirectory()];
+const isOption = (s: string) => /^--?[a-z]+/.test(s);
+const isWordQuoted = (s: string) => /^".*"/.test(s);
+
+class SearchBrowser {
+  current: vscode.QuickPick<vscode.QuickPickItem>;
+  searchFileNameOnly: boolean;
+  originalFileDirectory: string;
+  scrollBack: QuickPickItemWithLine[] = [];
+  public quickPickButtons = [
+    {
+      iconPath: new vscode.ThemeIcon('symbol-folder'),
+      tooltip: 'Search workspace'
+    } as vscode.QuickInputButton,
+    {
+      iconPath: new vscode.ThemeIcon('symbol-keyword'),
+      tooltip: 'Search file content',
+    },
+  ] as vscode.QuickInputButton[];
+  quickPickValue: string = '';
+
+
+
+  constructor(public dirs: string[], opts?: {
+    searchFileNameOnly?: boolean
+  }) {
+    if (this.dirs.length === 0) {
+      this.dirs = [getCurrentFileDirectorySync()];
+    }
+    this.originalFileDirectory = this.dirs[0];
+    this.searchFileNameOnly = opts?.searchFileNameOnly !== undefined ? opts?.searchFileNameOnly : true;
+
+    const quickPick = vscode.window.createQuickPick();
+    quickPick.placeholder = "Please enter a search term";
+    quickPick.matchOnDescription = true;
+    // quickPick.ignoreFocusOut = true;
+    quickPick.items = this.scrollBack;
+    quickPick.buttons = this.quickPickButtons;
+
+    quickPick.show();
+    this.current = quickPick;
+    this.setContext(true);
+    let updateSearchDebounced = debounce(this.updateSearch.bind(this), 100);
+
+    this.current.onDidAccept(this.onDidAccept.bind(this));
+    this.current.onDidChangeValue(updateSearchDebounced);
+    this.current.onDidTriggerButton(this.onDidTriggerButton.bind(this));
+
+    this.current.onDidHide(() => {
+      this.setContext(false);
+      this.dispose();
+    });
   }
 
-  let originalFileDirectory = dirs[0];
-
-  let searchFileNameOnly: boolean = opts?.searchFileNameOnly !== undefined ? opts?.searchFileNameOnly : true;
-
-  async function updateSearch(value: string) {
-    quickPickValue = value;
+  async updateSearch(value: string) {
+    this.quickPickValue = value;
     if (!value || value === "") {
       return;
     }
@@ -176,12 +216,12 @@ export async function searchDirs(dirs: string[], opts?: {
     }, [] as string[]);
 
     let quoteSearch = quote([getRgPath(), '--files', '.']) + ' | ' + quote([getRgPath(),  ...query]);
-    if (!searchFileNameOnly) {
+    if (!this.searchFileNameOnly) {
       quoteSearch = quote([getRgPath(), "-n", ...query, "."]);
     }
-    quickPick.items = (
+    this.current.items = (
       await Promise.allSettled(
-        dirs.map((dir) => searchFileNameOnly ? fetchItemsSearchName(quoteSearch, dir) : fetchItemsSearchContent(quoteSearch, dir) ),
+        this.dirs.map((dir) => this.searchFileNameOnly ? fetchItemsSearchName(quoteSearch, dir) : fetchItemsSearchContent(quoteSearch, dir) ),
       )
     )
       .map((result) => {
@@ -200,84 +240,69 @@ export async function searchDirs(dirs: string[], opts?: {
       .flat();
   }
 
-  let updateSearchDebounced = debounce((value: string) => {
-    updateSearch(value);
-  }, 100);
-
-  const quickPick = vscode.window.createQuickPick();
-  quickPick.placeholder = "Please enter a search term";
-  quickPick.matchOnDescription = true;
-
-  // quickPick.ignoreFocusOut = true;
-  quickPick.items = scrollBack;
-
-
-  quickPick.buttons = quickPickButtons;
-
-  quickPick.onDidTriggerButton(async (e) => {
+  async onDidTriggerButton(e: vscode.QuickInputButton) {
     if (e.tooltip === 'Search workspace') {
       if ((e.iconPath as vscode.ThemeIcon).id !== 'check') {
-        dirs = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath) || [];
+        this.dirs = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath) || [];
 
-        quickPickButtons[0] = {
+        this.quickPickButtons[0] = {
           iconPath: new vscode.ThemeIcon('check'),
-          tooltip: 'Search workspace'
+          tooltip: e.tooltip,
         } as vscode.QuickInputButton;
       } else {
-        dirs = [originalFileDirectory];
+        this.dirs = [this.originalFileDirectory];
 
-        quickPickButtons[0] = {
+        this.quickPickButtons[0] = {
           iconPath: new vscode.ThemeIcon('symbol-folder'),
-          tooltip: 'Search workspace'
+          tooltip: e.tooltip,
         } as vscode.QuickInputButton;
       }
-      quickPick.buttons = quickPickButtons;
-      updateSearch(quickPick.value);
+      this.current.buttons = this.quickPickButtons;
+      this.updateSearch(this.current.value);
     } else if (e.tooltip === 'Search file content') {
       if ((e.iconPath as vscode.ThemeIcon).id !== 'check') {
-        searchFileNameOnly = false;
+        this.searchFileNameOnly = false;
 
-        quickPickButtons[1] = {
+        this.quickPickButtons[1] = {
           iconPath: new vscode.ThemeIcon('check'),
-          tooltip: 'Search workspace'
+          tooltip: e.tooltip,
         } as vscode.QuickInputButton;
       } else {
-        searchFileNameOnly = true;
+        this.searchFileNameOnly = true;
 
-        quickPickButtons[1] = {
+        this.quickPickButtons[1] = {
           iconPath: new vscode.ThemeIcon('symbol-keyword'),
-          tooltip: 'Search workspace'
+          tooltip: e.tooltip,
         } as vscode.QuickInputButton;
       }
-      quickPick.buttons = quickPickButtons;
-      updateSearch(quickPick.value);
+      this.current.buttons = this.quickPickButtons;
+      this.updateSearch(this.current.value);
     }
-  });
-  quickPick.onDidChangeValue(updateSearchDebounced);
+  }
 
-  quickPick.onDidAccept(async () => {
-    const item = quickPick.selectedItems[0] as QuickPickItemWithLine;
+  async onDidAccept() {
+    const item = this.current.selectedItems[0] as QuickPickItemWithLine;
     if (!item) {
       return;
     }
 
     if (item.description === "History") {
-      quickPick.value = item.label;
+      this.current.value = item.label;
       return;
     }
 
     // Create scrollback item to store history
     const scrollBackItem = {
-      label: quickPickValue,
+      label: this.quickPickValue,
       description: "History",
       num: 0,
     };
     // Scrollback history is limited to 20 items
-    if (scrollBack.length > 20) {
+    if (this.scrollBack.length > 20) {
       // Remove oldest item
-      scrollBack.pop();
+      this.scrollBack.pop();
     }
-    scrollBack.unshift(scrollBackItem);
+    this.scrollBack.unshift(scrollBackItem);
 
     const { detail, num } = item;
     const doc = await vscode.workspace.openTextDocument("" + detail);
@@ -293,9 +318,22 @@ export async function searchDirs(dirs: string[], opts?: {
       0,
     );
     vscode.commands.executeCommand("cursorUp");
-  });
+  }
+  setContext(state: boolean) {
+    vscode.commands.executeCommand("setContext", "inSearchBrowser", state);
+  }
 
-  quickPick.show();
+  dispose() {
+    this.setContext(false);
+    this.current.dispose();
+  }
+}
+
+
+export async function searchDirs(dirs: string[], opts?: {
+  searchFileNameOnly?: boolean
+}) {
+  active = new SearchBrowser(dirs, opts);
 }
 
 export function initializeSearchDirs(context: vscode.ExtensionContext) {
@@ -311,7 +349,7 @@ export function initializeSearchDirs(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand(
     "file-browser.grep.toggleSearchWorkspace",
     async () => {
-      quickPickButtons
+      active?.onDidTriggerButton(active?.quickPickButtons[0]);
     },
   ));
 
@@ -319,7 +357,7 @@ export function initializeSearchDirs(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand(
     "file-browser.grep.toggleSearchContent",
     async () => {
-        searchDirs([]);
+      active?.onDidTriggerButton(active?.quickPickButtons[1]);
     },
   ));
 }
