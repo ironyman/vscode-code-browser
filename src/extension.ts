@@ -216,6 +216,10 @@ class FileBrowser {
             this.current.items = this.items;
         }
         this.current.enabled = true;
+        if (this.opts.write) {
+            // Create default item.
+            this.onDidChangeValue(this.current.value);
+        }
     }
 
     onDidChangeValue(value: string) {
@@ -231,8 +235,22 @@ class FileBrowser {
 
         const existingItem = this.items.find((item) => item.name === value);
         if (value === "") {
-            this.current.items = this.items;
-            this.current.activeItems = [];
+            let currentFileName = vscode.window.activeTextEditor?.document.fileName;
+            if (this.opts.write && currentFileName) {
+                let currentFileNameBase = OSPath.basename(currentFileName);
+                const newItem = {
+                    label: `$(new-file) ${currentFileNameBase}`,
+                    name: currentFileNameBase,
+                    description: "Create file",
+                    alwaysShow: true,
+                    action: Action.OpenFile,
+                };
+                this.current.items = [newItem, ...this.items];
+                this.current.activeItems = [newItem];
+            } else {
+                this.current.items = this.items;
+                this.current.activeItems = [];
+            }
         } else if (existingItem !== undefined) {
             this.current.items = this.items;
             this.current.activeItems = [existingItem];
@@ -424,6 +442,7 @@ class FileBrowser {
             // Setting value automatically calls this.onDidChangeValue so calling with true won't achieve what we want
             // because it will be called after with false in second argument
             // this.onDidChangeValue(this.current.value, true);
+            // Setting value doesn't always call onDidChangeValue, something else was calling it after tab completion.
         }
     }
 
@@ -450,7 +469,16 @@ class FileBrowser {
             if (!document) {
                 return;
             }
-            fs.writeFileSync(uri.fsPath, document);
+            try {
+                fs.mkdirSync(OSPath.dirname(uri.fsPath), {
+                    recursive: true
+                });
+                fs.writeFileSync(uri.fsPath, document);
+            } catch (e) {
+                vscode.window.showErrorMessage(
+                    `Failed to create file.\n${e}`
+                );
+            }
         }
         vscode.workspace
             .openTextDocument(uri)
