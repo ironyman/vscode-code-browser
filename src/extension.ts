@@ -41,6 +41,13 @@ function setContext2(path: Path | undefined) {
     }
 }
 
+function getSelectedText(): string | undefined {
+    if (!vscode.window.activeTextEditor) {
+        return undefined;
+    }
+    return vscode.window.activeTextEditor.document.getText(vscode.window.activeTextEditor.selection);
+}
+
 interface AutoCompletion {
     index: number;
     items: FileItem[];
@@ -666,6 +673,11 @@ export function activate(context: vscode.ExtensionContext) {
             active = Some(new FileBrowser(path, file, context));
             setContext(true);
             setContext2(path);
+
+            const selectedText = getSelectedText();
+            if (selectedText) {
+                active.unwrap()!.onDidChangeValue(selectedText);
+            }
         })
     );
 
@@ -737,13 +749,21 @@ export function activate(context: vscode.ExtensionContext) {
         async () => {
             if (active.isSome()) {
                 let currentPath = active.unwrap()!.path;
+                const initialQueryValue = active.unwrap()!.current.value;
                 if (await currentPath.isDir()) {
-                    searchDirs([currentPath.fsPath]);
+                    searchDirs([currentPath.fsPath], {
+                        initialQueryValue,
+                    });
                 } else {
-                    searchDirs([OSPath.dirname(currentPath.fsPath)]);
+                    searchDirs([OSPath.dirname(currentPath.fsPath)], {
+                        initialQueryValue,
+                    });
                 }
             } else {
-                searchDirs([]);
+                const selectedText = getSelectedText();
+                searchDirs([], {
+                    initialQueryValue: selectedText || ''
+                });
             }
         },
     ));
@@ -753,6 +773,9 @@ export function activate(context: vscode.ExtensionContext) {
     return {
         queryCurrentPath: (): string | undefined => {
             return active.unwrap()?.path.fsPath;
+        },
+        queryCurrentQueryValue: (): string | undefined => {
+            return active.unwrap()?.current.value;
         },
         close: () => {
             return active.unwrap()?.dispose();

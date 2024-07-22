@@ -347,9 +347,14 @@ class SearchBrowser {
 
 
 export async function searchDirs(dirs: string[], opts?: {
-  searchFileNameOnly?: boolean
+  searchFileNameOnly?: boolean,
+  initialQueryValue?: string,
 }) {
   active = new SearchBrowser(dirs, opts);
+  if (opts?.initialQueryValue) {
+    active.current.value = opts?.initialQueryValue;
+    active.updateSearch(opts?.initialQueryValue);
+  }
 }
 
 export function initializeSearchDirs(context: vscode.ExtensionContext) {
