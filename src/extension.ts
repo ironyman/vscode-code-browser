@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { Uri, QuickPickItem, FileType, QuickInputButton, ThemeIcon, ViewColumn } from "vscode";
 import * as OS from "os";
 import * as OSPath from "path";
+import * as fs from "fs";
 
 import { Result, None, Option, Some } from "./rust";
 import { Path, endsWithPathSeparator } from "./path";
@@ -69,7 +70,15 @@ class FileBrowser {
         tooltip: "Step into folder",
     };
 
-    constructor(path: Path, file: Option<string>, private context: vscode.ExtensionContext) {
+    static defaultConstructorOpts: {
+        write?: boolean,
+    } = {
+        write: false,
+    };
+
+    constructor(path: Path, file: Option<string>, private context: vscode.ExtensionContext, private opts: typeof FileBrowser.defaultConstructorOpts = FileBrowser.defaultConstructorOpts) {
+        this.opts.write ??= FileBrowser.defaultConstructorOpts.write;
+
         this.path = path;
         this.file = file;
         this.pathHistory = { [this.path.id]: this.file };
@@ -87,7 +96,11 @@ class FileBrowser {
         this.current.onDidTriggerButton(this.onDidTriggerButton.bind(this));
         this.current.onDidTriggerItemButton(this.onDidTriggerItemButton.bind(this));
         this.update().then(() => {
-            this.current.placeholder = "Type a file name here to search or open a new file";
+            if (this.opts.write) {
+                this.current.placeholder = "Type a file name here to create a new file or overwrite existing one";
+            } else {
+                this.current.placeholder = "Type a file name here to search or open a new file";
+            }
             this.current.busy = false;
         });
     }
@@ -278,6 +291,10 @@ class FileBrowser {
                         alwaysShow: true,
                         action: Action.NewFile,
                     };
+                    if (this.opts.write) {
+                        newItem.action = Action.OpenFile;
+                        newItem.description = "Create new file";
+                    }
                     this.current.items = [newItem, ...this.items];
                     this.current.activeItems = [newItem];
                 }
@@ -428,9 +445,18 @@ class FileBrowser {
 
     openFile(uri: Uri, column: ViewColumn = ViewColumn.Active) {
         this.dispose();
+        if (this.opts.write) {
+            const document = vscode.window.activeTextEditor?.document.getText();
+            if (!document) {
+                return;
+            }
+            fs.writeFileSync(uri.fsPath, document);
+        }
         vscode.workspace
             .openTextDocument(uri)
-            .then((doc) => vscode.window.showTextDocument(doc, column));
+            .then((doc) => {
+                vscode.window.showTextDocument(doc, column);
+            });
     }
 
     async rename() {
@@ -612,9 +638,30 @@ export function activate(context: vscode.ExtensionContext) {
             active = Some(new FileBrowser(path, file, context));
             setContext(true);
             setContext2(path);
-
         })
     );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand("file-browser.write", () => {
+            const document = vscode.window.activeTextEditor?.document;
+            let workspaceFolder =
+                vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
+            let path = new Path(workspaceFolder?.uri || Uri.file(OS.homedir()));
+            let file: Option<string> = None;
+            if (document && !document.isUntitled) {
+                try {
+                    path = new Path(document.uri);
+                    file = path.pop();
+                } catch (error) {
+                    path = Path.fromFilePath('@');
+                }
+            }
+            active = Some(new FileBrowser(path, file, context, { write: true }));
+            setContext(true);
+            setContext2(path);
+        })
+    );
+
     context.subscriptions.push(
         vscode.commands.registerCommand("file-browser.rename", () =>
             active.orElse(() => {

@@ -79,6 +79,10 @@
                 "title": "File Browser: Open"
             },
             {
+                "command": "file-browser.write",
+                "title": "File Browser: Write"
+            },
+            {
                 "command": "file-browser.rename",
                 "title": "File Browser: Rename"
             },
@@ -146,6 +150,11 @@
             {
                 "key": "ctrl+; ctrl+g",
                 "command": "file-browser.grep"
+            },
+            {
+                "key": "ctrl+g",
+                "command": "file-browser.grep",
+                "when": "inFileBrowser"
             },
             {
                 "key": "ctrl+1",
