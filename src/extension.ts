@@ -656,7 +656,7 @@ export function activate(context: vscode.ExtensionContext) {
     setContext2(undefined);
 
     context.subscriptions.push(
-        vscode.commands.registerCommand("file-browser.open", () => {
+        vscode.commands.registerCommand("file-browser.open", (args: any) => {
             const document = vscode.window.activeTextEditor?.document;
             let workspaceFolder =
                 vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
@@ -674,9 +674,10 @@ export function activate(context: vscode.ExtensionContext) {
             setContext(true);
             setContext2(path);
 
-            const selectedText = getSelectedText();
-            if (selectedText) {
-                active.unwrap()!.onDidChangeValue(selectedText);
+            let initialQueryValue = args[0];
+            initialQueryValue ??= getSelectedText();
+            if (initialQueryValue) {
+                active.unwrap()!.onDidChangeValue(initialQueryValue);
             }
         })
     );
