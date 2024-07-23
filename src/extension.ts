@@ -182,6 +182,7 @@ class FileBrowser {
                 action("$(search) Find files in containing folder", Action.FindFiles),
                 action("$(symbol-keyword) Find files in containing folder by content", Action.FindFilesContent),
                 action("$(pin) Pin this file", Action.Pin),
+                action("$(clippy) Copy this file path", Action.CopyPath),
                 ...this.getPinned(),
             ];
             this.current.items = this.items;
@@ -201,6 +202,7 @@ class FileBrowser {
                 action("$(search) Find files", Action.FindFiles),
                 action("$(symbol-keyword) Find files by content", Action.FindFilesContent),
                 action("$(pin) Pin this folder", Action.Pin),
+                action("$(clippy) Copy this file path", Action.CopyPath),
                 ...this.getPinned(),
             ];
             this.current.items = this.items;
@@ -643,6 +645,11 @@ class FileBrowser {
                 } else {
                     searchDirs([OSPath.dirname(this.path.uri.fsPath)], { searchFileNameOnly: false });
                 }
+                break;
+            }
+            case Action.CopyPath: {
+                vscode.env.clipboard.writeText(this.path.fsPath);
+                this.hide();
                 break;
             }
             default:

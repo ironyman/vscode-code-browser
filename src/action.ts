@@ -11,6 +11,7 @@ export enum Action {
     OpenPin,
     FindFiles,
     FindFilesContent,
+    CopyPath,
 }
 
 export function action(label: string, action: Action, arg?: any) {
