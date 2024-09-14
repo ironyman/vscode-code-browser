@@ -681,7 +681,7 @@ export function activate(context: vscode.ExtensionContext) {
             setContext(true);
             setContext2(path);
 
-            let initialQueryValue = args[0];
+            let initialQueryValue = args && args[0];
             initialQueryValue ??= getSelectedText();
             if (initialQueryValue) {
                 active.unwrap()!.onDidChangeValue(initialQueryValue);

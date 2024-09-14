@@ -1,7 +1,9 @@
 import * as vscode from "vscode";
 import * as cp from "child_process";
-import { quote } from "shell-quote";
+// import { quote } from "shell-quote";
 import * as path from "path";
+import { join } from "shlex";
+import * as os from "os";
 
 const MAX_DESC_LENGTH = 1000;
 const MAX_BUF_SIZE = 200000 * 1024;
@@ -55,6 +57,24 @@ async function getCurrentFileDirectory(): Promise<string> {
   }
 
   return pwdString;
+}
+
+function quote(strs: string[]): string {
+  // if (os.platform() !== "win32") {
+  if (process.platform !== "win32") {
+    // shell-quote is broken, shlex is more mature.
+    return join(strs);
+  }
+
+  // not sure how to quote for cmd prompt...
+  // https://learn.microsoft.com/en-us/cli/azure/use-azure-cli-successfully-quoting
+  return strs.map(s => {
+    if (s.indexOf(' ') !== -1 || s.indexOf('\t') !== -1) {
+      return `"${s}"`;
+    } else {
+      return s;
+    }
+  }).join(' ');
 }
 
 const isOption = (s: string) => /^--?[a-z]+/.test(s);
@@ -184,11 +204,15 @@ class SearchBrowser {
         { cwd: dir, maxBuffer: MAX_BUF_SIZE },
         (err, stdout, stderr) => {
           if (stderr) {
-            reject(new Error(stderr));
+            console.log(`rg error: ${stderr}`);
+            reject(new Error(stderr));  
+            // returning here crashes extension
+            // return;
           }
           const lines = stdout.split(/\n/).filter((l) => l !== "");
           if (!lines.length) {
             resolve([]);
+            // return;
           }
           resolve(
             lines
@@ -233,6 +257,7 @@ class SearchBrowser {
     if (!this.searchFileNameOnly) {
       quoteSearch = quote([getRgPath(), "-n", ...query, "."]);
     }
+
     this.current.items = (
       await Promise.allSettled(
         this.dirs.map((dir) => this.searchFileNameOnly ? this.fetchItemsSearchName(quoteSearch, dir) : this.fetchItemsSearchContent(quoteSearch, dir) ),

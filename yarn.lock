@@ -1825,6 +1825,11 @@ shiki@^0.14.1:
     vscode-oniguruma "^1.7.0"
     vscode-textmate "^8.0.0"
 
+shlex@^2.1.2:
+  version "2.1.2"
+  resolved "https://registry.yarnpkg.com/shlex/-/shlex-2.1.2.tgz#5b5384d603885281c1dee05d56975865edddcba0"
+  integrity sha512-Nz6gtibMVgYeMEhUjp2KuwAgqaJA1K155dU/HuDaEJUGgnmYfVtVZah+uerVWdH8UGnyahhDCgABbYTbs254+w==
+
 side-channel@^1.0.6:
   version "1.0.6"
   resolved "https://registry.npmjs.org/side-channel/-/side-channel-1.0.6.tgz#abd25fb7cd24baf45466406b1096b7831c9215f2"
