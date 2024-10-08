@@ -41,3 +41,18 @@ Please note that this project is released with a [Contributor Code of Conduct][c
 participating in this project you agree to abide by its terms.
 
 [coc]: https://github.com/bodil/vscode-file-browser/blob/master/CODE_OF_CONDUCT.md
+
+
+# Development
+Install node and yarn
+```
+winget install fnm # or scoop install fnm
+fnm install v22.9.0 # fnm list-remote
+fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression
+npm i -g yarn
+```
+
+Create vsix
+```
+yarn build-vsix
+```
