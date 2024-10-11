@@ -4,6 +4,7 @@ import * as cp from "child_process";
 import * as path from "path";
 import { join } from "shlex";
 import * as os from "os";
+import * as fs from 'fs';
 
 const MAX_DESC_LENGTH = 1000;
 const MAX_BUF_SIZE = 200000 * 1024;
@@ -11,7 +12,16 @@ const MAX_BUF_SIZE = 200000 * 1024;
 let active: SearchBrowser;
 
 const getRgPath = () => {
-  return vscode.env.appRoot + '/node_modules.asar.unpacked/@vscode/ripgrep/bin/rg';
+  let attempt1 = vscode.env.appRoot + '/node_modules.asar.unpacked/@vscode/ripgrep/bin/rg.exe';
+  let attempt2 = vscode.env.appRoot + '/node_modules/@vscode/ripgrep/bin/rg.exe';
+
+  if (fs.existsSync(attempt1)) {
+    return attempt1;
+  } else if (fs.existsSync(attempt2)) {
+    return attempt2;
+  } else {
+    throw 'Can\'t find ripgrep';
+  }
 };
 
 interface QuickPickItemWithLine extends vscode.QuickPickItem {
