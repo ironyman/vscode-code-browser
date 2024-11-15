@@ -658,6 +658,30 @@ class FileBrowser {
     }
 }
 
+async function handleGrepCommand(searchFileNameOnly: boolean = true) {
+    if (active.isSome()) {
+        let currentPath = active.unwrap()!.path;
+        const initialQueryValue = active.unwrap()!.current.value;
+        if (await currentPath.isDir()) {
+            searchDirs([currentPath.fsPath], {
+                initialQueryValue,
+                searchFileNameOnly,
+            });
+        } else {
+            searchDirs([OSPath.dirname(currentPath.fsPath)], {
+                initialQueryValue,
+                searchFileNameOnly,
+            });
+        }
+    } else {
+        const selectedText = getSelectedText();
+        searchDirs([], {
+            initialQueryValue: selectedText || '',
+            searchFileNameOnly,
+        });
+    }
+}
+
 export function activate(context: vscode.ExtensionContext) {
     setContext(false);
     setContext2(undefined);
@@ -755,26 +779,18 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand(
         "file-browser.grep",
         async () => {
-            if (active.isSome()) {
-                let currentPath = active.unwrap()!.path;
-                const initialQueryValue = active.unwrap()!.current.value;
-                if (await currentPath.isDir()) {
-                    searchDirs([currentPath.fsPath], {
-                        initialQueryValue,
-                    });
-                } else {
-                    searchDirs([OSPath.dirname(currentPath.fsPath)], {
-                        initialQueryValue,
-                    });
-                }
-            } else {
-                const selectedText = getSelectedText();
-                searchDirs([], {
-                    initialQueryValue: selectedText || ''
-                });
-            }
+            handleGrepCommand();
         },
     ));
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+        "file-browser.grepContent",
+        async () => {
+            handleGrepCommand(false);
+        },
+    ));
+
 
     initializeSearchDirs(context);
 

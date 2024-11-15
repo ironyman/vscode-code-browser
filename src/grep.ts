@@ -46,8 +46,14 @@ function getCurrentFileDirectorySync(): string {
   let pwd = vscode.Uri.parse(
       vscode.window.activeTextEditor.document.uri.path,
   );
+
   let pwdString = pwd.path;
-    pwdString = path.dirname(pwdString);
+  // On win32, remove the leading / infront of URI, /c:/file...
+  if (process.platform === "win32" && pwdString.length > 0) {
+    pwdString = pwdString.substring(1).replace(/\//g, '\\');
+  }
+
+  pwdString = path.dirname(pwdString);
 
   return pwdString;
 }
@@ -215,7 +221,7 @@ class SearchBrowser {
         (err, stdout, stderr) => {
           if (stderr) {
             console.log(`rg error: ${stderr}`);
-            reject(new Error(stderr));  
+            reject(new Error(stderr));
             // returning here crashes extension
             // return;
           }

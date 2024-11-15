@@ -100,7 +100,11 @@
             },
             {
                 "command": "file-browser.grep",
-                "title": "File Browser: Actions"
+                "title": "File Browser: Grep for file name"
+            },
+            {
+                "command": "file-browser.grepContent",
+                "title": "File Browser: Grep for file content"
             },
             {
                 "command": "file-browser.grep.toggleSearchWorkspace",
@@ -152,8 +156,17 @@
                 "command": "file-browser.grep"
             },
             {
+                "key": "ctrl+; ctrl+alt+g",
+                "command": "file-browser.grepContent"
+            },
+            {
                 "key": "ctrl+g",
                 "command": "file-browser.grep",
+                "when": "inFileBrowser"
+            },
+            {
+                "key": "ctrl+alt+g",
+                "command": "file-browser.grepContent",
                 "when": "inFileBrowser"
             },
             {
